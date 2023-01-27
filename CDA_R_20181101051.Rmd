@@ -1,0 +1,559 @@
+---
+title: "Cheapest Electric Cars"
+author: "Batuhan Doğanay"
+date: "1/4/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggpubr)
+library(rstatix)
+library(car)
+library(broom)
+library(dplyr)
+library(tidyr)
+library(haven)
+library(readxl)
+library(GGally)
+library(Hmisc)
+library(corrplot)
+library(psych)
+library(mice)
+library(readxl)
+library(readxl)
+Kategorize_Data <- read_excel("Downloads/Kategorize-Data1.xlsx")
+View(Kategorize_Data)
+```
+```{r}
+summary(Kategorize_Data)
+str(Kategorize_Data)
+```
+```{r}
+any(is.na(Kategorize_Data))
+md.pattern(Kategorize_Data)
+```
+
+```{r}
+Kategorize_Data$Acceleration_SEC<-factor(Kategorize_Data$Acceleration_SEC,levels = c(1,2,3),labels=c("Hızlı","Normal","Yavaş"))
+```
+```{r}
+Kategorize_Data$Drive<-factor(Kategorize_Data$Drive,levels = c(1,2,3),labels=c("4ceker","Onceker","Arkaiter"))
+```
+```{r}
+Kategorize_Data$effi<-factor(Kategorize_Data$effi,levels = c(1,2,3),labels=c("4ceker1","Onceker2","Arkaiter3"))
+```
+```{r}
+Kategorize_Data$NumberofSeats<-factor(Kategorize_Data$NumberofSeats,levels = c(1,2),labels=c("Yuksekarac","Alcakarac"))
+```
+
+```{r}
+Kategorize_Data %>%
+   dplyr::select(TopSpeed_KM_H ,Efficiency_WH_KM ,PriceinGermany_EURO ,Range_H ,FastChargeSpeed) %>%
+  mshapiro_test()
+
+```
+
+```{r}
+library(dplyr)
+Kategorize_Data %>%
+  group_by(effi,Acceleration_SEC) %>%
+  summarise(N = n())
+```
+
+```{r}
+library(funModeling)
+plot_num(Kategorize_Data)
+```
+
+
+```{r}
+Kategorize_Data %>%
+  dplyr::select(TopSpeed_KM_H,Efficiency_WH_KM) %>% 
+  mshapiro_test()
+```
+
+
+```{r}
+
+ Kategorize_Data%>% 
+  group_by(Drive) %>%
+  summarise(across(c(TopSpeed_KM_H,Efficiency_WH_KM), list(mean=mean,sd=sd)))
+
+```
+
+```{r}
+library(gplots)
+#Drive icin:
+plotmeans(Efficiency_WH_KM~Drive,xlab="Drive",ylab="Efficiency_WH_KM", main="Mean Plot\nwith 95% CI",data=Kategorize_Data)
+plotmeans(TopSpeed_KM_H~Drive, xlab="Drive",ylab="TopSpeed_KM_H", main="Mean Plot\nwith 95% CI",data=Kategorize_Data)
+
+```
+
+```{r}
+library(PerformanceAnalytics)
+chart.Correlation(Kategorize_Data[,c(5,7)], histogram=TRUE, pch=19)
+```
+
+```{r}
+
+library(dplyr)
+out<- Kategorize_Data %>% tibble::rownames_to_column(var="outlier") %>% group_by(Drive) %>% mutate(is_outlier=ifelse(is_outlier(TopSpeed_KM_H), TopSpeed_KM_H, as.numeric(NA)))
+out$outlier[which(is.na(out$is_outlier))] <- as.numeric(NA)
+
+ggplot(out, aes(y=TopSpeed_KM_H, x=Drive,fill=Drive))+
+  geom_boxplot() + 
+  geom_text(aes(label=outlier),na.rm=TRUE,nudge_x=0.15,size=3.5)+ 
+  labs(x="Drive", y = "TopSpeed_KM_H")+
+  scale_fill_discrete(name = "Drive")
+```
+
+```{r}
+#Outliers-Multivariate
+#Manova_toprak$id=1:nrow(Manova_toprak)
+B1=Kategorize_Data[,c(4,6)] %>%
+  group_by("Drive") %>%
+  mahalanobis_distance() %>%
+  filter(is.outlier == TRUE) %>%
+  as.data.frame()
+```
+
+ 
+```{r}
+#install.packages("biotools")
+library("biotools")
+box_m(Kategorize_Data[, c("TopSpeed_KM_H","Efficiency_WH_KM","Range_H")],Kategorize_Data$Drive) 
+```
+
+```{r}
+#MANOVA  
+lncar_man <- manova(cbind(TopSpeed_KM_H,Efficiency_WH_KM,Range_H) ~ Drive,data=Kategorize_Data)
+summary(lncar_man, test = "Hotelling-Lawley")
+summary(lncar_man, test = "Wilks")
+summary(lncar_man, test = "Pillai")
+summary(lncar_man, test = "Roy")
+```
+
+```{r}
+#install.packages("car")
+library(car)
+library(tidyverse)
+Kategorize_Data %>% 
+  pivot_longer( c(TopSpeed_KM_H,Efficiency_WH_KM,Range_H),names_to = "variable", values_to = "value") %>%
+  group_by(variable) %>%
+  levene_test(value ~ Drive,center=mean)
+```
+
+```{r}
+### Test of Between Subjects####Farkliligi yaratan degisken hangisi ?
+summary.aov(lncar_man)
+```
+
+```{r}
+
+TopSpeed_KM_H_aov <- aov(TopSpeed_KM_H ~ Drive, data = Kategorize_Data)
+TukeyHSD(TopSpeed_KM_H_aov, "Drive")
+
+Efficiency_WH_KM_aov <- aov(Efficiency_WH_KM ~ Drive, data = Kategorize_Data)
+TukeyHSD(Efficiency_WH_KM_aov,"Drive")
+
+Range_H_aov <- aov(Range_H ~ Drive, data= Kategorize_Data)
+TukeyHSD(Range_H_aov,"Drive")
+```
+
+```{r}
+summary(Kategorize_Data)
+Kategorize_Data$Acceleration_SEC<-as.factor(Kategorize_Data$Acceleration_SEC)
+Kategorize_Data$effi<-as.factor(Kategorize_Data$effi)
+Kategorize_Data$NumberofSeats<-as.factor(Kategorize_Data$NumberofSeats)
+Kategorize_Data$TopSpeed_KM_H<-as.numeric(Kategorize_Data$TopSpeed_KM_H)
+Kategorize_Data$Range_H<-as.numeric(Kategorize_Data$Range_H)
+Kategorize_Data$Efficiency_WH_KM<-as.numeric(Kategorize_Data$Efficiency_WH_KM)
+Kategorize_Data$PriceinGermany_EURO<-as.numeric(Kategorize_Data$PriceinGermany_EURO)
+```
+
+
+```{r}
+###Çift Yönlü Manova
+library(heplots)
+boxM(cbind(TopSpeed_KM_H, Efficiency_WH_KM, Range_H) ~ effi*Acceleration_SEC, data=Kategorize_Data)
+#Kategorik değişkenlerimiz düzenli dağılmadığı için elle düzenli dağılan değişken oluşturup analizimizi yapıyoruz.
+```
+
+```{r}
+#MANOVA  
+Kategorize_Data_cift <- manova(cbind(TopSpeed_KM_H,Efficiency_WH_KM,Range_H) ~ Drive*Acceleration_SEC,data=Kategorize_Data)
+summary(Kategorize_Data_cift, test = "Pillai") #uygun olanlardan biri secilebilir
+
+#Homogeneity of variance- Levene's Test
+#install.packages("car")
+library(car)
+Kategorize_Data %>% 
+  pivot_longer( c(TopSpeed_KM_H,Efficiency_WH_KM,Range_H),names_to = "variable", values_to = "value") %>%
+  group_by(variable) %>%
+  levene_test(value ~ Drive*Acceleration_SEC,center=mean)
+
+
+### Test of Between Subjects####Farkliligi yaratan degisken hangisi
+summary.aov(Kategorize_Data_cift)
+
+# Çoklu Karsilastirmalar (Multiple Comparisons)
+#Levene- Equal variances -Tukey
+m2<-Kategorize_Data[,c(4,5,6)]
+pc_2 <- Kategorize_Data %>%
+  pivot_longer( c(TopSpeed_KM_H,Efficiency_WH_KM,Range_H),names_to = "variables", values_to = "value") %>%
+  group_by(variables) %>%
+  tukey_hsd(value ~ Drive*Acceleration_SEC)
+pc_2<-pc_2[,c(1,2,3)]             
+Drive_etk<-filter(pc_2, term=="Drive")
+Drive_etk
+
+
+attach(Kategorize_Data)
+interaction.plot(Drive,Acceleration_SEC,TopSpeed_KM_H, fun=mean, type="l", legend=TRUE,col=1:3, lwd=2)
+interaction.plot(Drive,Acceleration_SEC,Efficiency_WH_KM, fun=mean, type="l", legend=TRUE, col=1:3,lwd=2)
+detach(Kategorize_Data)
+```
+
+
+
+TEMEL BİLEŞENLER VE FAKTÖR ANALİZİ
+
+
+```{r}
+Kategorize_Data1 <- read_excel("Downloads/Kategorize-Data2.xlsx")
+
+```
+
+```{r}
+Kategorize_Data1$Acceleration_SEC<-factor(Kategorize_Data1$Acceleration_SEC,levels = c(1,2,3),labels=c("Hızlı","Normal","Yavaş"))
+```
+```{r}
+Kategorize_Data1$Drive<-factor(Kategorize_Data1$Drive,levels = c(1,2,3),labels=c("4ceker","Onceker","Arkaiter"))
+```
+```{r}
+Kategorize_Data1$effi<-factor(Kategorize_Data1$effi,levels = c(1,2,3),labels=c("4ceker1","Onceker2","Arkaiter3"))
+```
+```{r}
+Kategorize_Data1$NumberofSeats<-factor(Kategorize_Data1$NumberofSeats,levels = c(1,2),labels=c("Yuksekarac","Alcakarac"))
+```
+
+```{r}
+Kategorize_Data_pca<-Filter(is.numeric, Kategorize_Data1)
+```
+
+
+```{r}
+#temel bileşenler Analizi
+library(GGally)
+ggpairs(Kategorize_Data_pca)                 
+```
+
+```{r}
+library("Hmisc") #anlamlılık değerleriyle birlikte görmek istersek (2-tailed sonuçlar)
+rcorr(as.matrix(Kategorize_Data_pca),type="pearson") # Veri matris formatında olmalı
+```
+
+```{r}
+library(corrplot)
+corrplot(cor(Kategorize_Data_pca)) #Bir başka grafiksel gösterim
+
+```
+
+```{r}
+library(psych)
+KMO(Kategorize_Data_pca) # KMO ve MSA Anti-image matris kosegenleri
+```
+
+```{r}
+#Bartlett Küresellik Testi(Bartlett's Test of Spherecity) 
+cortest.bartlett(cor(Kategorize_Data_pca),nrow(Kategorize_Data_pca)) #Bartlett test 
+```
+
+```{r}
+fit.pca <- prcomp( ~., data=Kategorize_Data_pca, scale=TRUE) # korelasyon matrisi icin scale=TRUE yaz 
+fit.pca$rotation ## yükler
+fit.pca$x  #scores
+```
+
+```{r}
+#Bilesen sayisina karar vermek
+summary(fit.pca) # varyans açıklama oranları
+(fit.pca$sdev)^2 #ozdegerler 1 den büyük olanları seç
+
+```
+
+```{r}
+#Scree plot
+plot
+library(factoextra)
+scree <- fviz_eig(fit.pca)
+scree
+
+```
+
+```{r}
+#ilk iki bilesene karar verildi:
+fit.pca$rotation[,1:2] #loadings
+
+faktor_yukleri<-t(fit.pca$rotation)*fit.pca$sdev # koklambda ile carpılmıs hali bu da bizi faktore goturuyor
+faktor_yukleri #asal bileşenler
+```
+
+```{r}
+row.names(fit.pca$x)<-Kategorize_Data1$Drive #skorları isimlendirme 
+#skorları veriye kaydetme
+Kategorize_Data$comp1=fit.pca$x[,1] 
+Kategorize_Data$comp2=fit.pca$x[,2] 
+
+#indeks olusturma ### 
+Kategorize_Data$index=Kategorize_Data$comp1+Kategorize_Data$comp2
+
+# Gözlem sayısı çok olduğunda kullanılablir.
+
+```
+
+```{r}
+library(factoextra)
+fviz_pca_var(fit.pca,col.var="steelblue",
+             repel = TRUE # Avoid text overlapping
+)
+```
+
+```{r}
+Kategorize_Data_pca
+```
+
+```{r}
+library(corrplot)
+corrplot(cor(Kategorize_Data_pca))
+korelasyon<-cor(Kategorize_Data_pca)
+```
+
+```{r}
+library("Hmisc") #anlamlılık değerleriyle birlikte görmek istersek (2-tailed sonuçlar)
+rcorr(as.matrix(Kategorize_Data_pca),type="pearson") # Veri matris formatında olmalı
+
+```
+
+```{r}
+solvekor<-solve(korelasyon)# korelasyon matrisinin tersi (VIF)
+colnames(solvekor)<-rownames(solvekor)<-colnames(korelasyon) # değişken isimleri yazması için
+solvekor
+```
+
+```{r}
+library(psych)
+KMO(Kategorize_Data_pca) # KMO ve MSA Anti-image matris kosegenleri
+```
+
+```{r}
+cortest.bartlett(cor(Kategorize_Data_pca),nrow(Kategorize_Data_pca)) #Bartlett test 
+```
+
+```{r}
+#Temel Bilesenler Analizi Yöntemi(Kok lambda yaklasimi) secilerek faktor analizi
+fa_kokl<-principal(Kategorize_Data_pca, nfactors =3, rotate = "none")
+fit.pca2 <- prcomp( ~., Kategorize_Data_pca, scale=TRUE) # koymasak olur 125.satır scree plot için gerekli sadece
+print(fa_kokl$loadings, digits=3, cutoff=.0, sort=TRUE) ## sıralı hale getirmek için
+fa_kokl$communality  #tum degiskenlerin communality(h^2) hesaplaması
+fa_kokl$loadings[ , ]^2# aj^2 'ler tüm faktörler için (communality herbir değişken için yüklerin kareler toplamıdır)
+rowSums(fa_kokl$loadings[ , ]^2) #communality hesaplanışı görülmesi için
+
+```
+
+```{r}
+var_oran<-colSums(fa_kokl$loadings[ , ]^2)/11 #varyans aciklama oranlari
+var_oran
+sum(var_oran) # 3 Faktörün toplam varyans açıklama oranı
+```
+
+```{r}
+plot(fa_kokl$values, type="b", main="ScreePlot", xlab="Number of Factors", ylab="Eigenvalues")
+#YA DA 
+library(factoextra)
+scree <- fviz_eig(fit.pca2)
+scree
+```
+
+```{r}
+artik_kor<-fa_kokl$residual ## Artık korelasyon matrisi
+artik_kor
+n_col_artik<-ncol(artik_kor)
+n_artik<-length(artik_kor)               
+n_2artik<-n_artik-n_col_artik
+length(artik_kor[abs(artik_kor)<0.05])/110
+```
+
+```{r}
+#Varimax döndürme ile
+fa_kokl<-principal(Kategorize_Data_pca, nfactors =3, rotate = "varimax")
+print(fa_kokl$loadings, digits=3, cutoff=.3, sort=TRUE)
+```
+
+```{r}
+fa.diagram(fa_kokl)
+?principal
+#Faktor yuku grafigi
+fyuk=fa_kokl$loadings[,1:3]#degiskenlerin faktor yukleri
+library(scatterplot3d)
+s3d=scatterplot3d(as.data.frame(unclass(fyuk)), main="3D factor loadings", color=1:ncol(Kategorize_Data_pca), pch=20)
+text(s3d$xyz.convert(fyuk), labels = rownames(fyuk),
+     cex= 0.7, col = 1:ncol(Kategorize_Data_pca))
+#YA DA 
+factor.plot(fa_kokl, labels=rownames(fa_kokl$loadings))
+#Eger 2 faktor secilseydi plot:
+fyuk2=fa_kokl$loadings[,1:2]
+factor.plot(fyuk2, cut=0.5, labels=rownames(fa_kokl$loadings),font=2, cex=0.8)
+```
+
+```{r}
+#Principal Axis Yontemiyle Faktor Analizi( MLE, Minimum Residual vs de secilebilir )
+library(psych)
+?fa
+fsolution <- fa(Kategorize_Data_pca, nfactors = 2, rotate = "none", fm = "pa") 
+print(fsolution$loadings, digits=3, cutoff=.3, sort=TRUE)
+```
+
+```{r}
+frotate1 <- fa(Kategorize_Data_pca, nfactors = 2, rotate = "none", fm = "pa",scores=TRUE) 
+print(frotate1$loadings, digits=3, cutoff=.3, sort=TRUE)
+```
+
+```{r}
+frotate <- fa(Kategorize_Data_pca, nfactors = 2, rotate = "varimax", fm = "pa",scores=TRUE) #oblimin ya da promax
+print(frotate$loadings, digits=3, cutoff=.3, sort=TRUE)
+fa.diagram(frotate)
+factor.plot(frotate, labels=rownames(frotate$loadings))
+```
+```{r}
+library(haven)
+library(readxl)
+Kategorize_Data <- read_excel("Downloads/Kategorize-Data1.xlsx")
+View(Kategorize_Data)
+```
+
+
+```{r}
+Kategorize_Data_new<-Kategorize_Data[,c(5,6,7,9,11,12)]
+summary(Kategorize_Data_new)
+
+Kategorize_Data$NumberofSeats<-factor(Kategorize_Data$NumberofSeats,levels = c(1,2),labels=c("Yuksekarac","Alcakarac"))
+
+Kategorize_Data_new$NumberofSeats<- as.factor(Kategorize_Data_new$NumberofSeats)
+```
+
+```{r}
+#Normallik
+library(funModeling)
+plot_num(Kategorize_Data_new)
+```
+
+```{r}
+#Univariate Normality
+#Her bir degisken için
+shapiro.test(Kategorize_Data_new$TopSpeed_KM_H)
+shapiro.test(Kategorize_Data_new$Efficiency_WH_KM)
+shapiro.test(Kategorize_Data_new$Range_H)
+shapiro.test(Kategorize_Data_new$FastChargeSpeed)
+shapiro.test(Kategorize_Data_new$PriceinGermany_EURO)
+```
+
+```{r}
+#Multivariate Normality
+library(dplyr)
+library(rstatix)
+Kategorize_Data_new %>% 
+  dplyr::select(!c(NumberofSeats)) %>%
+  mshapiro_test()
+```
+
+```{r}
+#Homogeneity of Covariances
+#install.packages("biotools")
+library(biotools)
+boxM(Kategorize_Data_new[,1:4], Kategorize_Data_new$NumberofSeats)
+```
+
+```{r}
+#Linear Discriminant Analysis - Binary-class
+library(MASS) 
+Kategorize_Data_lda<-lda(Kategorize_Data_new$NumberofSeats~., data=Kategorize_Data_new)
+Kategorize_Data_lda
+```
+
+```{r}
+#Grup tahmini yapilmasi
+Kategorize_Datapred<-predict(Kategorize_Data_lda)
+```
+
+```{r}
+#plots
+ldahist(Kategorize_Datapred$x[,1], g = Kategorize_Data_new$NumberofSeats)
+#Çapraz Tablonun olusturulmasi
+tablo_Kategorize_Data<-table(Kategorize_Data_new$NumberofSeats,Kategorize_Datapred$class)
+tablo_Kategorize_Data
+```
+
+```{r}
+#Dogru siniflanma orani
+classrate_Kategorize_Data<-sum(diag(tablo_Kategorize_Data))/sum(tablo_Kategorize_Data)
+classrate_Kategorize_Data
+```
+
+```{r}
+#Nispi sans kriteri p1^2+p^2
+Kategorize_Data_lda$prior[1]^2 + Kategorize_Data_lda$prior[2]^2
+```
+
+```{r}
+#Orjinal gruplar ile Tahmin edilen grupların karşılaştırılması
+comp_Kategorize_Datas<-cbind(Kategorize_Data_new$NumberofSeats,Kategorize_Datapred$class)
+```
+
+```{r}
+newdata <- data.frame(type = Kategorize_Data_new$NumberofSeats, Kategorize_Data_lda = Kategorize_Datapred$x) #convert to data frame
+library(ggplot2)
+Kategorize_Data_new$ld1<-predict(Kategorize_Data_lda)$x[, 1]
+Kategorize_Data_new$ld2<-predict(Kategorize_Data_lda)$x[, 1]
+ggplot(data=Kategorize_Data_new) + geom_point(aes(ld1, ld2, colour = NumberofSeats), size = 2.5)
+```
+
+
+
+```{r}
+library(haven)
+library(readxl)
+Kategorize_Datas <- read_excel("Downloads/Kategorize-Data1.xlsx")
+Kategorize_Datas<-na.omit(Kategorize_Datas)
+```
+
+```{r}
+Kategorize_Datas$effi<-factor(Kategorize_Datas$effi,levels = c(1,2,3),labels=c("4ceker1","Onceker2","Arkaiter3"))
+summary(Kategorize_Datas)
+
+```
+
+```{r}
+###  multinomial Lojistik regresyon
+library(mlogit)
+ml.dat <- mlogit.data(Kategorize_Datas, choice="effi", shape="wide")
+ml <- mlogit(effi ~ 0|TopSpeed_KM_H+Efficiency_WH_KM+Range_H,data=ml.dat, reflevel = 'Onceker2')
+summary(ml)
+```
+
+```{r}
+exp(ml$coefficients) #Model katsayilarinin exponential alinmis hali 
+
+##R^2 Değerleri
+library("DescTools")
+library(nnet)
+multi_mo <- multinom(effi ~ TopSpeed_KM_H+Efficiency_WH_KM+Range_H , data = Kategorize_Datas)
+PseudoR2(multi_mo, which = c("CoxSnell","Nagelkerke","McFadden"))
+
+```
+

@@ -1,0 +1,176 @@
+---
+title: "Görselleştirme"
+author: "Batuhan Doğanay"
+date: "7/4/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+ElectricCarData_Clean <- read_csv("Downloads/ElectricCarData_Clean.csv")
+View(ElectricCarData_Clean)
+```
+```{r}
+library(tidyverse)
+library(ggpubr)
+library(rstatix)
+library(car)
+library(broom)
+library(dplyr)
+library(tidyr)
+library(haven)
+library(readxl)
+library(GGally)
+library(corrplot)
+library(psych)
+library(mice)
+library(readxl)
+library(readxl)
+library(alluvial)
+```
+
+```{r}
+head(ElectricCarData_Clean)
+```
+
+```{r}
+ElectricCarData_Clean$Efficiency_WhKm<-ifelse(ElectricCarData_Clean$Efficiency_WhKm <=170, "Düşük Elektrik Tüketimi", ifelse(ElectricCarData_Clean$Efficiency_WhKm >170 & ElectricCarData_Clean$Efficiency_WhKm <= 190,"Orta Elektrik Tüketimi","Yüksek Elektrik Tüketimi"))
+ElectricCarData_Clean<-as.data.frame(ElectricCarData_Clean)
+```
+
+
+```{r}
+ElectricCarData_Clean$PriceEuro<-ifelse(ElectricCarData_Clean$PriceEuro <=36500, "Düşük Fiyatlı Elektrikli Araçlar", ifelse(ElectricCarData_Clean$PriceEuro >170 & ElectricCarData_Clean$PriceEuro <= 80000,"Orta Fiyatlı Elektrikli Araçlar","Yüksek Fiyatlı Elektrikli Araçlar"))
+ElectricCarData_Clean<-as.data.frame(ElectricCarData_Clean)
+```
+
+
+```{r}
+summary(ElectricCarData_Clean)
+str(ElectricCarData_Clean)
+```
+```{r}
+any(is.na(ElectricCarData_Clean))
+colSums(is.na(ElectricCarData_Clean))
+```
+```{r}
+colnames(ElectricCarData_Clean)
+```
+```{r}
+library(funModeling)
+freq(ElectricCarData_Clean)
+```
+```{r}
+ggplot(ElectricCarData_Clean, aes(PowerTrain , fill = Efficiency_WhKm )) +
+  geom_bar(position = position_dodge()) + 
+  ggtitle("Araç Çekiş Sistemlerine Göre Yakıt Tüketimi") +
+  xlab("Araç Çekiş Sistemleri") + 
+  ylab("Gözlem Sıklıkları")
+```
+
+
+```{r}
+ggplot(ElectricCarData_Clean, aes(PriceEuro , fill = Efficiency_WhKm )) +
+  geom_bar(position = position_dodge()) + 
+  ggtitle("Araç Fiyatlarına Göre Elektrik Tüketimi") +
+  xlab("Araç Fiyatlarına Göre Yakıt Tüketimi") + 
+  ylab("Gözlem Sıklıkları")
+```
+```{r}
+ggplot(ElectricCarData_Clean) + 
+  geom_point(aes(x = Range_Km, y = Efficiency_WhKm, colour = BodyStyle)) + 
+  scale_colour_brewer(type = 'qual')
+```
+## Araç tiplerine göre Maksimum mesafe ve Elektrik Tüketimi.
+```{r}
+plot(ElectricCarData_Clean[c(3,4,5)])
+```
+
+```{r}
+car::scatterplotMatrix(ElectricCarData_Clean[c(3,4,5)])
+```
+
+```{r}
+GGally::ggpairs(ElectricCarData_Clean[c(3,4,5)])
+```
+
+```{r}
+ggplot(ElectricCarData_Clean, aes(x =AccelSec , y =TopSpeed_KmH )) +
+  stat_smooth(method = "lm", se = FALSE, color = "green", formula = y ~ x) +
+  stat_smooth(method = "lm", se = FALSE, color = "blue", formula = y ~ x + I(x ^ 2)) +
+  stat_smooth(method = "lm", se = FALSE, color = "red", formula = y ~ x + I(x ^ 2)+ I(x ^ 3)) +
+  geom_point(colour = "black", size = 1)
+```
+##Aracın 0-100KM/H performansına göre araçların yaptığı maksimum hız.
+
+```{r}
+library(ggplot2)
+ggplot(ElectricCarData_Clean, aes(x=AccelSec, y=TopSpeed_KmH) ) +
+  stat_density_2d(aes(fill = ..level..), geom = "polygon", colour="white")+theme_classic()
+
+```
+```{r}
+library(ggpubr)
+d1<-table(ElectricCarData_Clean$PriceEuro)
+d1.df<-as.data.frame(d1)
+x<-as.data.frame(table(ElectricCarData_Clean$Segment))
+ggpie(x, "Freq",label="Var1")
+```
+```{r}
+ggplot(ElectricCarData_Clean) + 
+  geom_bar(aes(x = BodyStyle)) + 
+  coord_polar()
+```
+
+```{r}
+ggplot(ElectricCarData_Clean) + 
+  geom_bar(aes(x = Segment)) + 
+  coord_polar(theta = 'y') + 
+  expand_limits(y = 70)
+```
+
+```{r}
+Pasta <- paste0(x$Var1, " (", "%" ,format(x$Freq,digits=3), ")")
+
+ggpie(x, "Freq",label=Pasta, fill="Var1", color = "white",palette = c("#00AFBB", "#E7B800", "#FC4E07","#FF1493","#228B22","#8B4513","#0000FF","#FFCC99" ), main="Segmentlere Göre Pasta Grafiği")
+```
+
+```{r}
+library(plotrix)
+fan.plot(x$Freq, labels = as.character(x$Var1),col=c("#00AFBB", "#E7B800", "#FC4E07","#FF1493","#228B22","#8B4513","#0000FF","#FFCC99"))
+
+```
+
+```{r}
+t2<- table(ElectricCarData_Clean$PowerTrain, ElectricCarData_Clean$BodyStyle)
+t2
+```
+
+```{r}
+barplot(t2, main = "Stacked Bar Plot", xlab = "Matematik", ylab=  "Frequency", col = palette(), legend.text = rownames(t2))
+```
+
+```{r}
+library(plotrix)
+symbolbarplot(t2)
+```
+
+## Veri setindeki aracların tipine göre çekiş sistemini incelediğimizde SUV tipli araçların daha çok 4 çeker olduğunu varsayabiliriz.
+
+```{r}
+library(alluvial)
+alluvial(ElectricCarData_Clean[c(9,11,12)], freq = ElectricCarData_Clean$Range_Km)
+```
+
+##Araçların aldığı maksimum mesafeye göre Araç çekiş sistemi Araç tipi ve Segmentlerinin alüvyal grafiği.
+
+```{r}
+ggplot(ElectricCarData_Clean, aes(x = TopSpeed_KmH, y = Brand)) + 
+  geom_point() + 
+  geom_text(aes(label = row.names(ElectricCarData_Clean)))
+```
+## Araç markalarına göre maksimum hıza sahip araç yoğunlukları.
