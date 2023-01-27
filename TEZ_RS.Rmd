@@ -1,0 +1,236 @@
+---
+title: "Tez Çalışması"
+author: "Batuhan Doğanay"
+date: "7/12/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(readr)
+ElectricCarData_Clean <- read_csv("Downloads/ElectricCarData_Clean.csv")
+View(ElectricCarData_Clean)
+```
+```{r}
+library(tidyverse)
+library(ggpubr)
+library(rstatix)
+library(car)
+library(broom)
+library(dplyr)
+library(tidyr)
+library(haven)
+library(readxl)
+library(GGally)
+library(corrplot)
+library(psych)
+library(mice)
+library(readxl)
+library(readxl)
+```
+
+
+```{r}
+ElectricCarData_Clean$Efficiency_WhKm<-ifelse(ElectricCarData_Clean$Efficiency_WhKm <=170, "Düşük Elektrik Tüketimi", ifelse(ElectricCarData_Clean$Efficiency_WhKm >170 & ElectricCarData_Clean$Efficiency_WhKm <= 190,"Orta Elektrik Tüketimi","Yüksek Elektrik Tüketimi"))
+ElectricCarData_Clean<-as.data.frame(ElectricCarData_Clean)
+```
+
+```{r}
+ElectricCarData_Clean$PriceEuro<-ifelse(ElectricCarData_Clean$PriceEuro <=36500, "Düşük Fiyatlı Elektrikli Araçlar", ifelse(ElectricCarData_Clean$PriceEuro >36500 & ElectricCarData_Clean$PriceEuro <= 80000,"Orta Fiyatlı Elektrikli Araçlar","Yüksek Fiyatlı Elektrikli Araçlar"))
+ElectricCarData_Clean<-as.data.frame(ElectricCarData_Clean)
+```
+
+```{r}
+summary(ElectricCarData_Clean)
+str(ElectricCarData_Clean)
+```
+```{r}
+any(is.na(ElectricCarData_Clean))
+colSums(is.na(ElectricCarData_Clean))
+```
+```{r}
+colnames(ElectricCarData_Clean)
+```
+```{r}
+library(funModeling)
+freq(ElectricCarData_Clean)
+```
+```{r}
+ggplot(ElectricCarData_Clean, aes(PowerTrain , fill = Efficiency_WhKm )) +
+  geom_bar(position = position_dodge()) + 
+  ggtitle("Araç Çekiş Sistemlerine Göre Yakıt Tüketimi") +
+  xlab("Araç Çekiş Sistemleri") + 
+  ylab("Gözlem Sıklıkları")
+```
+
+
+```{r}
+ggplot(ElectricCarData_Clean, aes(PriceEuro , fill = Efficiency_WhKm )) +
+  geom_bar(position = position_dodge()) + 
+  ggtitle("Araç Fiyatlarına Göre Elektrik Tüketimi") +
+  xlab("Araç Fiyatlarına Göre Yakıt Tüketimi") + 
+  ylab("Gözlem Sıklıkları")
+```
+
+
+#En perfomanslı Modelimiz İlk Düğümü Yakıt Tüketimi Değişkenimiz Verdi 
+
+```{r}
+library(readr)
+ElectricCarData_Clean <- read_csv("Downloads/ElectricCarData_Clean.csv")
+```
+
+```{r}
+ElectricCarData_Clean <- ElectricCarData_Clean[c(3,4,5,6,14)]
+```
+
+```{r}
+ElectricCarData_Clean$Efficiency_WhKm<-ifelse(ElectricCarData_Clean$Efficiency_WhKm <=190, 1,0)
+ElectricCarData_Clean<-as.data.frame(ElectricCarData_Clean)
+```
+
+```{r}
+library(mice)
+md.pattern(ElectricCarData_Clean)
+```
+
+
+```{r}
+table(ElectricCarData_Clean$Efficiency_WhKm)
+```
+
+
+```{r}
+set.seed(165)
+trainIndex <- sample(1:nrow(ElectricCarData_Clean) , size = 0.8*nrow(ElectricCarData_Clean))
+```
+
+
+```{r}
+trainSet <- ElectricCarData_Clean[trainIndex,]
+testSet <- ElectricCarData_Clean[-trainIndex,]
+```
+
+
+```{r}
+nrow(trainSet)
+nrow(testSet)
+table(ElectricCarData_Clean$Efficiency_WhKm)
+table(ElectricCarData_Clean$Efficiency_WhKm)
+```
+
+
+```{r}
+### Bağımlı değişkenimizi Faktöre çeviriyoruz
+
+trainSet$Efficiency_WhKm <- as.factor(trainSet$Efficiency_WhKm)
+testSet$Efficiency_WhKm <- as.factor(testSet$Efficiency_WhKm)
+```
+
+
+```{r}
+### Model Oluşturma
+library(rpart)
+library(rattle)
+
+modelEntropy <- rpart(Efficiency_WhKm ~ . , data = trainSet , method = "class" , 
+                  parms = list(split = "information"))
+```
+
+```{r}
+modelEntropy2 <- rpart(Efficiency_WhKm ~ . , data = trainSet , method = "class" , 
+                  parms = list(split = "information"))
+```
+
+```{r}
+modelGini <- rpart(Efficiency_WhKm ~ . , data = trainSet , method = "class" , 
+                      parms = list(split = "gini"))
+```
+
+
+```{r}
+modelEntropy
+```
+```{r}
+modelEntropy2
+```
+
+```{r}
+modelGini
+```
+
+```{r}
+fancyRpartPlot(modelEntropy)
+
+modelEntropy
+```
+
+```{r}
+summary(modelEntropy)
+summary(modelGini)
+```
+
+```{r}
+?rpart.control
+```
+
+
+```{r}
+modelEntropyHyper <- rpart(Efficiency_WhKm ~ . , data = trainSet , method = "class" , 
+                      parms = list(split = "information") ,
+                      control = rpart.control(minsplit = 10 , cp = 0.02 , maxdepth = 20))
+
+```
+
+```{r}
+modelEntropyHyper
+```
+
+```{r}
+fancyRpartPlot(modelEntropyHyper)
+
+modelEntropyHyper
+```
+
+### Tahmin
+
+```{r}
+predModelEntropy <- predict(modelEntropy , testSet , type = "class")
+predModelEntropy
+```
+
+```{r}
+predModelGini <- predict(modelGini , testSet , type = "class")
+```
+
+```{r}
+predModelEntropyHyper <- predict(modelEntropyHyper , testSet , type="class")
+```
+```{r}
+library(caret)
+
+confusionMatrix(predModelEntropy , testSet$Efficiency_WhKm)
+```
+## Doğruluk oranı %85 iyi model denilebilir.
+## Güven aralığı %97
+## p Value değer No Information Rate değerinden büyük çıkması modelimiz için performanslı olduğunu temsil ediyor.
+## Kappa değeri Modelimiz iyi fakat geliştirebilir bir model olduğunu ifade ediyor.
+## Dengeli bir model diyebiliriz.
+
+
+```{r}
+confusionMatrix(predModelEntropy , testSet$Efficiency_WhKm , mode = "prec_recall")
+```
+
+## F1 skorumuz %80 Modelimizin performansı 0'ı tahmin ederken iyi olduğunu ifade ediyor.
+
+```{r}
+confusionMatrix(predModelEntropy , testSet$Efficiency_WhKm , mode = "prec_recall" , positive = "1")
+
+```
+
+## F1 skorumuz %88 Modelimizin performansı 1'i tahmin ederken iyi olduğunu ifade ediyor.
